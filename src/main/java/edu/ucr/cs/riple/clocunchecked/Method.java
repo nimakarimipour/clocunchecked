@@ -32,6 +32,6 @@ public class Method {
   final List<String> lines;
 
   public Method(List<String> lines, Range range) {
-    this.lines = lines.subList(range.begin.line, range.end.line);
+    this.lines = lines.subList(range.begin.line - 1, range.end.line);
   }
 }
