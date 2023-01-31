@@ -24,11 +24,12 @@
 
 package edu.ucr.cs.riple.clocunchecked;
 
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.MarkerAnnotationExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -42,14 +43,14 @@ import java.util.stream.Stream;
 public class Counter {
 
   public final String root;
-  public final List<Method> methods;
+  public final List<NodeWithNullUnmarkedAnnotation> nodes;
 
   public static final AnnotationExpr nullUnmarkedAnnotationExpr =
       new MarkerAnnotationExpr("NullUnmarked");
 
   public Counter(String root) {
     this.root = root;
-    this.methods = new ArrayList<>();
+    this.nodes = new ArrayList<>();
   }
 
   public void count() {
@@ -60,15 +61,19 @@ public class Counter {
               path -> {
                 try {
                   List<String> lines = Files.readAllLines(path);
+                  StaticJavaParser.setConfiguration(
+                      new ParserConfiguration()
+                          .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17));
                   CompilationUnit c = StaticJavaParser.parse(path);
                   c.stream()
-                      .filter(node -> node instanceof MethodDeclaration)
-                      .map(node -> (MethodDeclaration) node)
-                      .filter(Counter::hasNullUnmarkedAnnotation)
-                      .filter(methodDeclaration -> methodDeclaration.getRange().isPresent())
+                      .filter(node -> node instanceof NodeWithAnnotations)
+                      .filter(e -> hasNullUnmarkedAnnotation((NodeWithAnnotations<?>) e))
+                      .filter(node -> node.getRange().isPresent())
                       .forEach(
-                          methodDeclaration ->
-                              methods.add(new Method(lines, methodDeclaration.getRange().get())));
+                          node ->
+                              nodes.add(
+                                  new NodeWithNullUnmarkedAnnotation(
+                                      lines, node.getRange().get())));
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
@@ -83,7 +88,10 @@ public class Counter {
     try {
       Path temp = Files.createTempFile("Clock", ".java");
       List<String> lines =
-          methods.stream().flatMap(method -> method.lines.stream()).collect(Collectors.toList());
+          nodes.stream()
+              .flatMap(
+                  nodeWithNullUnmarkedAnnotation -> nodeWithNullUnmarkedAnnotation.lines.stream())
+              .collect(Collectors.toList());
       lines.add(0, "public class GIANT {");
       lines.add("}");
       Files.write(temp, lines, Charset.defaultCharset());
@@ -96,7 +104,7 @@ public class Counter {
     }
   }
 
-  private static boolean hasNullUnmarkedAnnotation(MethodDeclaration methodDeclaration) {
-    return methodDeclaration.getAnnotations().contains(nullUnmarkedAnnotationExpr);
+  private static boolean hasNullUnmarkedAnnotation(NodeWithAnnotations<?> node) {
+    return node.getAnnotations().contains(nullUnmarkedAnnotationExpr);
   }
 }

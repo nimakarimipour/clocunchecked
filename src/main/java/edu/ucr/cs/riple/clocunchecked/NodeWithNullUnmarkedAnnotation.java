@@ -27,11 +27,11 @@ package edu.ucr.cs.riple.clocunchecked;
 import com.github.javaparser.Range;
 import java.util.List;
 
-public class Method {
+public class NodeWithNullUnmarkedAnnotation {
 
   final List<String> lines;
 
-  public Method(List<String> lines, Range range) {
+  public NodeWithNullUnmarkedAnnotation(List<String> lines, Range range) {
     this.lines = lines.subList(range.begin.line - 1, range.end.line);
   }
 }
